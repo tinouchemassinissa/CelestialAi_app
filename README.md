@@ -67,38 +67,14 @@ streamlit run streamlit_app.py
 
 The application will automatically open in your browser at http://localhost:8501.
 
-☁️ Cloud Deployment (AWS App Runner)
-This application is designed for Continuous Delivery (CD) via AWS App Runner, which automatically deploys changes pushed to this GitHub repository.
+## ☁️ Cloud Deployment (AWS App Runner)
 
-Configuration Details
-To configure the App Runner service, use the following settings:
+This application supports **Continuous Delivery (CD)** via AWS App Runner, automatically deploying updates when changes are pushed to GitHub.
 
-Setting
-
-Value
-
-Rationale
-
-Source
-
-GitHub Repository
-
-Uses automatic CI/CD trigger.
-
-Runtime
-
-Python 3
-
-Required Python version.
-
-Port
-
-8080
-
-Required port for the App Runner container environment.
-
-Start Command
-
-streamlit run streamlit_app.py --server.port 8080 --server.address 0.0.0.0
-
-CORRECTED: Forces Streamlit to listen on the required port (8080) and all network interfaces.
+### Configuration
+| Setting       | Value                                                                                     | Notes                           |
+|---------------|-------------------------------------------------------------------------------------------|---------------------------------|
+| Source        | GitHub Repository                                                                         | Enables automatic CI/CD trigger |
+| Runtime       | Python 3                                                                                  | Required version                |
+| Port          | 8080                                                                                      | App Runner default              |
+| Start Command | `streamlit run streamlit_app.py --server.port 8080 --server.address 0.0.0.0`              | Ensures correct binding         |
