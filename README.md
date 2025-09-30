@@ -101,11 +101,4 @@ Start Command
 
 streamlit run streamlit_app.py --server.port 8080 --server.address 0.0.0.0
 
-Forces Streamlit to listen on the required port (8080) and all network interfaces (0.0.0.0).
-
-Health Check Path
-
-/healthz
-
-Uses the built-in Streamlit health check endpoint.
-
+CORRECTED: Forces Streamlit to listen on the required port (8080) and all network interfaces.
