@@ -1,0 +1,1 @@
+"ID,Tool,Version,Issue,Workaround,Reported By,Status BUG-001,Cadence Innovus,22.1,Crashes during MMMC analysis,""Use -legacy_mode"",Alice,Open BUG-002,Synopsys ICC2,2023.03,""Incorrect congestion map"",""Run with -fix_congestion_patch"",Bob,""Fixed in 2023.06"" BUG-003,Synopsys PT,2022.12,""Timing violation false positive"",""Use -accurate_mode"",Charlie,""Under Review"""

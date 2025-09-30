@@ -1,0 +1,9 @@
+cad_command_center/
+├── app.py              # Main Streamlit UI, Navigation, and Entry Point
+├── physical_design.py  # All Netlist/Floorplanning/Optimization logic
+├── eda_infra.py        # All License/Bug/Tool Registry logic and data functions
+├── metrics.py          # Centralized metric calculation (Health Score, Cost)
+├── data/
+│   ├── license_costs.csv
+│   └── known_bugs.csv
+└── requirements.txt
