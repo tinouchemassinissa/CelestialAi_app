@@ -94,3 +94,15 @@ Once the App Runner service is connected to your GitHub repository, every push t
 4. **Monitor application logs.** Use the **Logs** tab in App Runner or stream them via CloudWatch Logs to ensure the Streamlit server starts successfully with `streamlit_app.py` bound to port `8080`.
 
 > 💡 **Tip:** For more advanced workflows (staging vs. production), create separate App Runner services pointing to dedicated branches or wire the repository into AWS CodePipeline/CodeBuild to run automated tests before App Runner receives the artifact.
+
+### Post-connection validation checklist
+
+After wiring your GitHub repository to AWS App Runner, run through the checks below to confirm the integration is healthy before relying on automated deployments:
+
+1. **Confirm the webhook handshake.** In App Runner, open your service, navigate to **Source → Repository details**, and ensure the connection status reads `Connected`. If it shows an error, click **Reconnect** to re-authorize GitHub.
+2. **Validate the default deployment.** Trigger a manual deploy of the latest commit and wait for the status to become `Running`. This proves the build container and Streamlit start command are accepted by App Runner.
+3. **Inspect environment variables and secrets.** Verify `Settings → Environment variables` contains the values the app expects (license paths, feature flags, etc.) so database features work once traffic hits the service.
+4. **Smoke test the live endpoint.** Visit the App Runner default domain (or your custom domain) and navigate through the CAD dashboards to make sure database-backed tabs load without errors.
+5. **Review CloudWatch metrics.** Use **Monitoring → CloudWatch alarms/metrics** to confirm the service is sending health data. Set up an alarm on `5XX` errors so future deploy issues alert your team quickly.
+
+Documenting the results of this checklist in your deployment runbook makes it easier for CAD engineers to troubleshoot if automated releases stop flowing from GitHub to AWS.
