@@ -114,7 +114,7 @@ def render_license_monitor():
         cost_df = pd.DataFrame() # Fallback to an empty DataFrame if 'Tool' is missing from the file.
 
     df = df.join(cost_df, on='Tool', how='left', rsuffix='_cost_join') # Join license_data with loaded cost data
-    
+
     # If the join was successful (i.e., 'Cost_Per_Seat_USD' exists from the loaded CSV or fallback)
     if 'Cost_Per_Seat_USD' not in df.columns:
         # Fallback for if the join didn't work (e.g. if the original CSV was missing data)
@@ -122,24 +122,58 @@ def render_license_monitor():
             lambda x: 25000 if 'Synopsys' in x else (35000 if 'Cadence' in x else 15000)
         )
 
-    df['Total Cost'] = df['Total Licenses'] * df['Cost_Per_Seat_USD'].fillna(0) 
+    df['Total Cost'] = df['Total Licenses'] * df['Cost_Per_Seat_USD'].fillna(0)
     df['Unused Cost'] = df['Available'] * df['Cost_Per_Seat_USD'].fillna(0)
+
+    # --- Interactive Filters ---
+    with st.expander("🔍 Focus the Dashboard", expanded=True):
+        vendor_values = df['Vendor'].fillna('Unknown').unique().tolist()
+        vendor_values.sort()
+        selected_vendors = st.multiselect(
+            "Filter by Vendor", vendor_values, default=vendor_values
+        )
+
+        max_util = float(df['Utilization (%)'].max()) if not df['Utilization (%)'].empty else 100.0
+        slider_upper = max(5.0, max_util)
+        min_utilization = st.slider(
+            "Minimum Utilization (%)", 0.0, slider_upper, 0.0, step=5.0
+        )
+
+    filtered_df = df[df['Vendor'].fillna('Unknown').isin(selected_vendors)].copy()
+    filtered_df = filtered_df[filtered_df['Utilization (%)'] >= min_utilization]
+
+    if filtered_df.empty:
+        st.warning("No tools match the current filters. Adjust the vendor selection or utilization threshold.")
+        return
 
     # Summary metrics
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Tools", len(df))
-    col2.metric("Avg Utilization", f"{df['Utilization (%)'].mean():.1f}%")
-    
-    critical_shortages = sum(df['Available'] == 0)
+    col1.metric("Tools Shown", len(filtered_df))
+    col2.metric("Avg Utilization", f"{filtered_df['Utilization (%)'].mean():.1f}%")
+
+    critical_shortages = int((filtered_df['Available'] == 0).sum())
     col3.metric("Critical Shortages", critical_shortages, delta_color="inverse")
-    
-    unused_cost = df['Unused Cost'].sum()
-    col4.metric("Unused License Cost (Annual)", f"${unused_cost:,.0f}", help="Estimated annual cost of currently available (unused) seats.")
+
+    unused_cost = filtered_df['Unused Cost'].sum()
+    top_idle_tool = filtered_df.sort_values('Unused Cost', ascending=False).iloc[0]
+    col4.metric(
+        "Highest Idle Spend",
+        f"${top_idle_tool['Unused Cost']:,.0f}",
+        help=f"{top_idle_tool['Tool']} is carrying the largest unused license cost."
+    )
+
+    # Provide download of filtered snapshot
+    st.download_button(
+        label="📥 Download Filtered Snapshot (CSV)",
+        data=filtered_df.to_csv(index=False),
+        file_name="license_dashboard_snapshot.csv",
+        mime="text/csv"
+    )
 
     # Chart
     fig = px.bar(
-        df, 
-        x="Tool", 
+        filtered_df,
+        x="Tool",
         y=["Used Licenses", "Available"],
         title="License Allocation by Tool",
         color_discrete_sequence=["#e74c3c", "#2ecc71"]
@@ -154,22 +188,41 @@ def render_license_monitor():
 
     # FIX: Apply styling and formatting to the sliced DataFrame and save the Styler object.
     # The Styler object itself is not subscriptable.
-    styled_df = df[display_cols].style.applymap(
+    styled_df = filtered_df[display_cols].style.applymap(
         # Use a high-contrast color for utilization warning (dark red on dark theme)
-        lambda x: 'background-color: #a33333; color: white' if x >= 90 else '', 
+        lambda x: 'background-color: #a33333; color: white' if x >= 90 else '',
         subset=['Utilization (%)']
     ).applymap(
         # Use a light gold/yellow color to highlight the largest license pool
-        lambda x: 'background-color: #ffdb58; color: black' if x == df['Total Licenses'].max() and x > 0 else '', 
+        lambda x: 'background-color: #ffdb58; color: black' if x == filtered_df['Total Licenses'].max() and x > 0 else '',
         subset=['Total Licenses']
     ).format({
         'Cost_Per_Seat_USD': '${:,.0f}',
         'Total Cost': '${:,.0f}',
         'Unused Cost': '${:,.0f}'
     })
-    
+
     # Pass the resulting Styler object directly to st.dataframe
     st.dataframe(styled_df, hide_index=True)
+
+    # Spotlight the most constrained and most underused tools
+    st.markdown("### 🔎 Risk Spotlight")
+    risk_cols = [col for col in display_cols if col in ['Tool', 'Vendor', 'Total Licenses', 'Used Licenses', 'Available', 'Utilization (%)', 'Unused Cost']]
+
+    shortage_tools = filtered_df[filtered_df['Available'] == 0].sort_values('Utilization (%)', ascending=False)
+    idle_tools = filtered_df.sort_values('Unused Cost', ascending=False)
+
+    col_short, col_idle = st.columns(2)
+    with col_short:
+        st.caption("Critical Shortage (0 seats free)")
+        if shortage_tools.empty:
+            st.success("No tools are completely allocated. 🎉")
+        else:
+            st.dataframe(shortage_tools[risk_cols].head(3), hide_index=True)
+
+    with col_idle:
+        st.caption("High Idle Spend (Top 3)")
+        st.dataframe(idle_tools[risk_cols].head(3), hide_index=True)
     
     # --- Add New Tool Form (Dynamic User Input) ---
     with st.expander("➕ Add New EDA Tool"):
