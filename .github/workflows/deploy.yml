@@ -1,0 +1,29 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy application on EC2
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/CelestialAi_app
+            git fetch origin main
+            git reset --hard origin/main
+            python3 -m pip install --upgrade pip
+            python3 -m pip install -r requirements.txt
+            /opt/CelestialAi_app/deploy.sh
+            sudo systemctl restart streamlit.service
