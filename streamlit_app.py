@@ -7,7 +7,16 @@ import json
 
 # Local modules
 from physical_design import render_floorplan_analyzer, generate_netlist, simulate_strategies
-from eda_infra import init_session_state, render_license_monitor, render_bug_tracker, render_tool_registry, get_license_data
+from eda_infra import (
+    init_session_state,
+    render_license_monitor,
+    render_bug_tracker,
+    render_tool_registry,
+    render_run_tracker,
+    render_tapeout_checklist,
+    render_database_manager,
+    get_license_data,
+)
 from metrics import calculate_system_health_score
 
 # --- Configuration & Initialization ---
@@ -74,8 +83,15 @@ elif view == "📊 EDA Infrastructure":
     
     # Use a sub-navigation for the infrastructure dashboard
     infra_view = st.radio(
-        "Infrastructure View", 
-        ["📊 License Monitor", "🐞 Bug Tracker", "⚙️ Tool Registry"], 
+        "Infrastructure View",
+        [
+            "📊 License Monitor",
+            "🐞 Bug Tracker",
+            "⚙️ Tool Registry",
+            "🚀 Run Tracker",
+            "✅ Tapeout Checklist",
+            "🗄️ Database Manager",
+        ],
         horizontal=True
     )
     
@@ -87,3 +103,9 @@ elif view == "📊 EDA Infrastructure":
         render_bug_tracker()
     elif infra_view == "⚙️ Tool Registry":
         render_tool_registry()
+    elif infra_view == "🚀 Run Tracker":
+        render_run_tracker()
+    elif infra_view == "✅ Tapeout Checklist":
+        render_tapeout_checklist()
+    elif infra_view == "🗄️ Database Manager":
+        render_database_manager()
