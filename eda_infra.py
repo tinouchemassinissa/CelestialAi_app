@@ -925,18 +925,25 @@ def render_license_monitor():
     # Load costs for cost analysis
     # Use try/except to handle the case where 'Tool' is missing from the loaded cost_df.
     try:
-        cost_df = load_data('license_costs.csv').set_index('Tool')
+        cost_df = load_data('license_costs.csv')
     except KeyError:
-        cost_df = pd.DataFrame() # Fallback to an empty DataFrame if 'Tool' is missing from the file.
+        cost_df = pd.DataFrame()
 
-    df = df.join(cost_df, on='Tool', how='left', rsuffix='_cost_join') # Join license_data with loaded cost data
+    if not cost_df.empty and 'Tool' in cost_df.columns:
+        cost_df = cost_df.set_index('Tool')
+        df = df.join(cost_df, on='Tool', how='left', rsuffix='_cost_join')
+    else:
+        df = df.copy()
 
     # Harmonize columns introduced by the join, preferring live dashboard values
     for col in ['Vendor', 'Cost_Per_Seat_USD', 'Total Licenses']:
         join_col = f"{col}_cost_join"
         if join_col in df.columns:
-            df[col] = df[col].fillna(df[join_col]) if col in df.columns else df[join_col]
-            df = df.drop(columns=[join_col])
+            if col in df.columns:
+                df[col] = df[col].fillna(df[join_col])
+            else:
+                df[col] = df[join_col]
+            df.drop(columns=[join_col], inplace=True)
 
     # If the join was successful (i.e., 'Cost_Per_Seat_USD' exists from the loaded CSV or fallback)
     if 'Cost_Per_Seat_USD' not in df.columns:
