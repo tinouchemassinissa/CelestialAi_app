@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 from datetime import datetime
 import json
+import subprocess
 
 # Local modules
 from physical_design import render_floorplan_analyzer, generate_netlist, simulate_strategies
@@ -19,8 +20,28 @@ from eda_infra import (
 )
 from metrics import calculate_system_health_score
 
+
+def _get_git_short_sha() -> str:
+    """Return the short git SHA for the current repository."""
+    try:
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.STDOUT
+        )
+        return sha.decode().strip()
+    except Exception:
+        return "unknown"
+
 # --- Configuration & Initialization ---
 st.set_page_config(page_title="CAD Command Center", layout="wide")
+
+st.markdown(
+    f"""
+    <div style='background-color:#0e1117;border-radius:6px;padding:0.6rem 1rem;margin-bottom:1rem;color:#f5f5f5;font-weight:600;'>
+        Deployed Commit: {_get_git_short_sha()}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Initialize Session State (must be called outside a function with st.cache_data)
 init_session_state()
