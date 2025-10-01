@@ -990,6 +990,20 @@ def render_license_monitor():
         st.warning("No tools match the current filters. Adjust the vendor selection or utilization threshold.")
         return
 
+    total_cost_series = filtered_df['Total Cost'].fillna(0)
+    unused_cost_series = filtered_df['Unused Cost'].fillna(0)
+    total_unused_cost = float(unused_cost_series.sum())
+    total_used_cost = float(total_cost_series.sum() - total_unused_cost)
+    st.info(
+        "\n".join(
+            [
+                f"**Active Spend:** ${total_used_cost:,.0f}",
+                f"**Idle Spend Exposure:** ${total_unused_cost:,.0f}",
+                "Balance procurement plans against these figures to keep quarterly CAD budgets on track.",
+            ]
+        )
+    )
+
     # Summary metrics
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Tools Shown", len(filtered_df))
@@ -1093,6 +1107,23 @@ def render_license_monitor():
 
     history_df = fetch_license_snapshot_history()
     if not history_df.empty:
+        history_chart = history_df.sort_values('snapshot_id').copy()
+        history_chart['created_at'] = pd.to_datetime(history_chart['created_at'])
+
+        chart_fig = px.line(
+            history_chart,
+            x='created_at',
+            y=['avg_utilization', 'used_licenses'],
+            labels={
+                'created_at': 'Captured',
+                'value': 'Value',
+                'variable': 'Metric',
+            },
+            title='Utilization & Usage Trend',
+        )
+        chart_fig.update_yaxes(title='Average Utilization (%) / Used Licenses')
+        st.plotly_chart(chart_fig, use_container_width=True)
+
         history_display = history_df.rename(
             columns={
                 'snapshot_id': 'Snapshot #',
@@ -1131,6 +1162,26 @@ def render_license_monitor():
     with col_idle:
         st.caption("High Idle Spend (Top 3)")
         st.dataframe(idle_tools[risk_cols].head(3), hide_index=True)
+
+    high_pressure = filtered_df[
+        (filtered_df['Available'] <= 2)
+        & (filtered_df['Available'] >= 0)
+        & (filtered_df['Utilization (%)'] >= 85)
+    ].sort_values('Utilization (%)', ascending=False)
+
+    if not high_pressure.empty:
+        st.markdown("### 🚨 Capacity Alerts")
+        st.write(
+            "These tools are nearly saturated—initiate procurement or re-allocation discussions before the next tapeout build."
+        )
+        st.dataframe(
+            high_pressure[risk_cols].assign(**{
+                'Buffer Seats': high_pressure['Available'],
+            })[
+                ['Tool', 'Vendor', 'Utilization (%)', 'Available', 'Buffer Seats', 'Unused Cost']
+            ],
+            hide_index=True,
+        )
 
     st.markdown("### 🧮 Capacity Planning Sandbox")
     with st.form("capacity_planner"):
