@@ -78,3 +78,19 @@ This application supports **Continuous Delivery (CD)** via AWS App Runner, autom
 | Runtime       | Python 3                                                                                  | Required version                |
 | Port          | 8080                                                                                      | App Runner default              |
 | Start Command | `streamlit run streamlit_app.py --server.port 8080 --server.address 0.0.0.0`              | Ensures correct binding         |
+
+### Deploying GitHub updates to AWS
+
+Once the App Runner service is connected to your GitHub repository, every push to the tracked branch (for example, `main` or `work`) can automatically redeploy the latest Streamlit build. Use the following workflow to keep AWS in sync:
+
+1. **Commit and push your changes to GitHub.**
+   ```bash
+   git add .
+   git commit -m "Describe your change"
+   git push origin <branch>
+   ```
+2. **Verify the App Runner deployment.** In the AWS console, open **App Runner → Services → [Your Service] → Deployments** to confirm a new deployment started from the recent GitHub push. The service automatically builds the new container image and rolls it out when the health checks pass.
+3. **Trigger a manual redeploy (optional).** If automatic deployments are disabled, choose **Deploy → Deploy latest commit** within the service console to force a redeploy from the most recent GitHub revision.
+4. **Monitor application logs.** Use the **Logs** tab in App Runner or stream them via CloudWatch Logs to ensure the Streamlit server starts successfully with `streamlit_app.py` bound to port `8080`.
+
+> 💡 **Tip:** For more advanced workflows (staging vs. production), create separate App Runner services pointing to dedicated branches or wire the repository into AWS CodePipeline/CodeBuild to run automated tests before App Runner receives the artifact.
