@@ -29,7 +29,8 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -T 5 -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
-          
+          # The problematic character or inconsistent indent is usually here ^
+
       - name: Deploy via SSH and Run Remote Script
         uses: appleboy/ssh-action@v1.0.3
         with:
