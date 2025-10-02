@@ -3,11 +3,10 @@ name: Deploy to EC2 (master)
 on:
   push:
     branches: [ master ]
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   deploy:
-    # environment: production  # Uncomment if using environment secrets
     runs-on: ubuntu-latest
 
     steps:
@@ -35,7 +34,6 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          # Use IP or hostname from secret
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
@@ -46,7 +44,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 60s
-          script_stop: true  # Stop on first script error
+          script_stop: true
           script: |
             set -euo pipefail
             cd /opt/CelestialAi_app || { echo "App directory not found"; exit 1; }
