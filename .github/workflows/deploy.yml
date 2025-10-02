@@ -1,29 +1,28 @@
-name: Deploy to EC2
+name: Deploy to EC2 (master)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy application on EC2
-        uses: appleboy/ssh-action@v0.1.10
+      - name: Add EC2 host key to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -T 5 -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -euo pipefail
-            cd /opt/CelestialAi_app
-            git fetch origin main
-            git reset --hard origin/main
-            python3 -m pip install --upgrade pip
-            python3 -m pip install -r requirements.txt
-            /opt/CelestialAi_app/deploy.sh
-            sudo systemctl restart streamlit.service
+            bash /opt/CelestialAi_app/deploy.sh
