@@ -1,27 +1,29 @@
-name: Deploy to EC2 (master)
+name: Deploy to EC2
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prep known_hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy application on EC2
+        uses: appleboy/ssh-action@v0.1.10
         with:
-          host: ${{ secrets.18.188.23.175 }}
-          username: ${{ secrets.ubuntu }}         # e.g. "ubuntu"
-          key: ${{ secrets.MIIEpAIBAAKCAQEAtvJWNXheGMGfeRFS9GmDqjAetNf2cP25x8SzNWr+C0tLqb8AnifaLf35tChcQO2EPODgux9lR2yKd5IPSj3yGxoX8S/C5cP6JigGe9r/ZFsbP92TgeeZcrFOUHmCvxnc8hY51PnQ0Oq4nUrZjclwWXCO7Lqn0zxAapwYlbvVFyiy8BBqrKjsxMBwd5CntKzrcv0TEbnuvDv2YlDSwUlJkktglpaunq/qPAAy2AB5ltHFw/5vGE3xMXIIF77ndB311LxNxnkwIbIgkN/pViee0YYObIIGEanP/NWCGcwlGlkIwgaPu3TCE+5B0RJYs8DXzAtiMm7zWY80OuLhzKKGMQIDAQABAoIBAQCpChQEBfsT7tw2Vn6K3W/N8fZ9bMsGLjrZzfM0mW6w6tq3toeQmwwq0PBHub88Mvqr8bFU1TaUn0L2JpxAIiqxRhP3RAVWnhVl6jfLe1fd15y/DzI7ps6PPis5inz3rKMNgOHg2w9J6oe4tq98JjPMQIefTvzA3nw6xY6l08+aO+zngWBw0qPCT2fdc+aLamUCKLLau7fAHS40SL/BO7YN9PLRM3DexeBN8OAWAl+tkvoxIYBbmq1x0o35lunHQZhl0weHc00XowFeDCVCcsZHZ0zi/tziqPczIjElFY1OKEhtraFAmY0jpQlaYFdxwLgjUJ2Pt9BQBzAGvCIYhWfBAoGBAOgusAtdl5p6hEt3epT7F8JKeoKqOIHIJmGi8LX1itjLXlw+UWNhRpwe3EmuAxESVGn5bXLKo+W4CQsVSCzFvA4xTF638kkz27kHsCNKKGhFbRhZMV56imonzVVdtL/O+hi9mu1c6A8HhEyWBD96V577L4npf94iohlNabfCAZvJAoGBAMm2rODzTt9OA4C/WtN0Mz6Snmtfjz9oCtmjUCYn4J6A9sMwYe5dGitIofbBkTFFoJZ7aBPeCzToDt7ILcofrfS2ZniV9BFu55F9b6EwP4UJEOXmSLynb/vxqd6NotCWQWFVPzhD2E1Pt0exFwLQRVfUQBS0LEKBTcW62ySVz3spAoGBAOfpwnQHzydBGyWaOPnYeFncNNSRHBIeDqBVtaO6mC6FrEHtCTR/9Jx6gsShqHSD34de2gDgAaeyFG5ampYGCBoRCdxOVhbiUqVV1YzaRNQqDJdWd+aL9fekvAd5qtIv9kWCFd7jfvOMKYyqB6I0HJMzCL/zWIJUC5/EYEVo5lxpAoGARM42LElyZwOCeGFNhwGFFVwIA9JF17gSs2hcx5ckrIyLH8uaLCe/7HHLJZOjhi4c+BfCSbydD//0SpP34pFp0iaBz7I+3c952Av0jwQZNrT/+ZvSxd9LeKJXcl3X4tTOGnhspzGlT8HYX/ENS11lue7hqO5Ihqr6r27sn48mhfkCgYBf3j79uXKVF/I+qIRwZiqo1DJNMB4jWeOrNs4mXbUBPvZ8MjIfbAXLL1qsXK4nYD0LJs8p4v6A1Zir6b6vpRenRf3QO3EyOLW1shBMTtOKELG74zBJIAquwmwN9cMJt8cSmVR9VhXanCRO3JqXHPfjfVCWRZkD9Rcibb/GiFtp8g== }}       # contents of your .pem
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -euo pipefail
-            bash /opt/CelestialAi_app/deploy.sh
+            cd /opt/CelestialAi_app
+            git fetch origin main
+            git reset --hard origin/main
+            python3 -m pip install --upgrade pip
+            python3 -m pip install -r requirements.txt
+            /opt/CelestialAi_app/deploy.sh
+            sudo systemctl restart streamlit.service
