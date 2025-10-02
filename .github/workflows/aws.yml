@@ -8,21 +8,53 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # uncomment this if your secrets are Environment secrets (and the env name matches):
+    # environment: production
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Preflight: verify required secrets exist
+        run: |
+          test -n "${{ secrets.EC2_HOST }}" || { echo "Missing secret: EC2_HOST"; exit 1; }
+          test -n "${{ secrets.EC2_USER }}" || { echo "Missing secret: EC2_USER"; exit 1; }
+          test -n "${{ secrets.SSH_PRIVATE_KEY }}" || { echo "Missing secret: SSH_PRIVATE_KEY"; exit 1; }
 
       - name: Add EC2 host key to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -T 5 -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # passphrase: ${{ secrets.SSH_PASSPHRASE }}   # only if your key has one
+          key: ${{ secrets.MIIEpAIBAAKCAQEAtvJWNXheGMGfeRFS9GmDqjAetNf2cP25x8SzNWr+C0tLqb8A
+nifaLf35tChcQO2EPODgux9lR2yKd5IPSj3yGxoX8S/C5cP6JigGe9r/ZFsbP92T
+geeZcrFOUHmCvxnc8hY51PnQ0Oq4nUrZjclwWXCO7Lqn0zxAapwYlbvVFyiy8BBq
+rKjsxMBwd5CntKzrcv0TEbnuvDv2YlDSwUlJkktglpaunq/qPAAy2AB5ltHFw/5v
+GE3xMXIIF77ndB311LxNxnkwIbIgkN/pViee0YYObIIGEanP/NWCGcwlGlkIwgaP
+u3TCE+5B0RJYs8DXzAtiMm7zWY80OuLhzKKGMQIDAQABAoIBAQCpChQEBfsT7tw2
+Vn6K3W/N8fZ9bMsGLjrZzfM0mW6w6tq3toeQmwwq0PBHub88Mvqr8bFU1TaUn0L2
+JpxAIiqxRhP3RAVWnhVl6jfLe1fd15y/DzI7ps6PPis5inz3rKMNgOHg2w9J6oe4
+tq98JjPMQIefTvzA3nw6xY6l08+aO+zngWBw0qPCT2fdc+aLamUCKLLau7fAHS40
+SL/BO7YN9PLRM3DexeBN8OAWAl+tkvoxIYBbmq1x0o35lunHQZhl0weHc00XowFe
+DCVCcsZHZ0zi/tziqPczIjElFY1OKEhtraFAmY0jpQlaYFdxwLgjUJ2Pt9BQBzAG
+vCIYhWfBAoGBAOgusAtdl5p6hEt3epT7F8JKeoKqOIHIJmGi8LX1itjLXlw+UWNh
+Rpwe3EmuAxESVGn5bXLKo+W4CQsVSCzFvA4xTF638kkz27kHsCNKKGhFbRhZMV56
+imonzVVdtL/O+hi9mu1c6A8HhEyWBD96V577L4npf94iohlNabfCAZvJAoGBAMm2
+rODzTt9OA4C/WtN0Mz6Snmtfjz9oCtmjUCYn4J6A9sMwYe5dGitIofbBkTFFoJZ7
+aBPeCzToDt7ILcofrfS2ZniV9BFu55F9b6EwP4UJEOXmSLynb/vxqd6NotCWQWFV
+PzhD2E1Pt0exFwLQRVfUQBS0LEKBTcW62ySVz3spAoGBAOfpwnQHzydBGyWaOPnY
+eFncNNSRHBIeDqBVtaO6mC6FrEHtCTR/9Jx6gsShqHSD34de2gDgAaeyFG5ampYG
+CBoRCdxOVhbiUqVV1YzaRNQqDJdWd+aL9fekvAd5qtIv9kWCFd7jfvOMKYyqB6I0
+HJMzCL/zWIJUC5/EYEVo5lxpAoGARM42LElyZwOCeGFNhwGFFVwIA9JF17gSs2hc
+x5ckrIyLH8uaLCe/7HHLJZOjhi4c+BfCSbydD//0SpP34pFp0iaBz7I+3c952Av0
+jwQZNrT/+ZvSxd9LeKJXcl3X4tTOGnhspzGlT8HYX/ENS11lue7hqO5Ihqr6r27s
+n48mhfkCgYBf3j79uXKVF/I+qIRwZiqo1DJNMB4jWeOrNs4mXbUBPvZ8MjIfbAXL
+L1qsXK4nYD0LJs8p4v6A1Zir6b6vpRenRf3QO3EyOLW1shBMTtOKELG74zBJIAqu
+wmwN9cMJt8cSmVR9VhXanCRO3JqXHPfjfVCWRZkD9Rcibb/GiFtp8g== }}
           script: |
             set -euo pipefail
             bash /opt/CelestialAi_app/deploy.sh
