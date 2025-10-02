@@ -5,8 +5,17 @@ import plotly.express as px
 import networkx as nx
 from math import sqrt 
 from io import StringIO
-import community.community_louvain as community_louvain 
-from eda_infra import load_tool_registry
+import community.community_louvain as community_louvain
+
+try:
+    from eda_infra import load_tool_registry
+except ImportError:  # pragma: no cover - defensive guard for remote deployments
+    def load_tool_registry():
+        """Fallback that keeps the floorplan dashboard usable when eda_infra is unavailable."""
+        st.warning(
+            "Tool registry unavailable — falling back to empty registry. Check the eda_infra module deployment."
+        )
+        return pd.DataFrame(columns=["Project", "Tool", "Approved Version", "Compiler"])
 from metrics import calculate_advanced_metrics, generate_export_file, generate_floorplan_coords
 
 # --- Configuration (Moved from main app) ---

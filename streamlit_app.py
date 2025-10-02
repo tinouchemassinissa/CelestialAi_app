@@ -3,15 +3,44 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from datetime import datetime
-import json
+import subprocess
 
 # Local modules
 from physical_design import render_floorplan_analyzer, generate_netlist, simulate_strategies
-from eda_infra import init_session_state, render_license_monitor, render_bug_tracker, render_tool_registry, get_license_data
+from eda_infra import (
+    init_session_state,
+    render_license_monitor,
+    render_bug_tracker,
+    render_tool_registry,
+    render_run_tracker,
+    render_tapeout_checklist,
+    render_database_manager,
+    get_license_data,
+)
 from metrics import calculate_system_health_score
+
+
+def _get_git_short_sha() -> str:
+    """Return the short git SHA for the current repository."""
+    try:
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.STDOUT
+        )
+        return sha.decode().strip()
+    except Exception:
+        return "unknown"
 
 # --- Configuration & Initialization ---
 st.set_page_config(page_title="CAD Command Center", layout="wide")
+
+st.markdown(
+    f"""
+    <div style='background-color:#0e1117;border-radius:6px;padding:0.6rem 1rem;margin-bottom:1rem;color:#f5f5f5;font-weight:600;'>
+        Deployed Commit: {_get_git_short_sha()}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Initialize Session State (must be called outside a function with st.cache_data)
 init_session_state()
@@ -74,8 +103,15 @@ elif view == "📊 EDA Infrastructure":
     
     # Use a sub-navigation for the infrastructure dashboard
     infra_view = st.radio(
-        "Infrastructure View", 
-        ["📊 License Monitor", "🐞 Bug Tracker", "⚙️ Tool Registry"], 
+        "Infrastructure View",
+        [
+            "📊 License Monitor",
+            "🐞 Bug Tracker",
+            "⚙️ Tool Registry",
+            "🚀 Run Tracker",
+            "✅ Tapeout Checklist",
+            "🗄️ Database Manager",
+        ],
         horizontal=True
     )
     
@@ -87,3 +123,9 @@ elif view == "📊 EDA Infrastructure":
         render_bug_tracker()
     elif infra_view == "⚙️ Tool Registry":
         render_tool_registry()
+    elif infra_view == "🚀 Run Tracker":
+        render_run_tracker()
+    elif infra_view == "✅ Tapeout Checklist":
+        render_tapeout_checklist()
+    elif infra_view == "🗄️ Database Manager":
+        render_database_manager()
