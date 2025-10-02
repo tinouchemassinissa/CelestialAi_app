@@ -1496,7 +1496,7 @@ def render_run_tracker():
                 )
                 owner = st.text_input("Owner", value=st.session_state.get('user', ""))
                 status = st.selectbox("Status", RUN_STATUS_OPTIONS, index=RUN_STATUS_OPTIONS.index("Queued"))
-                start_time = st.datetime_input("Start time", value=datetime.now())
+                start_time = st.date_input("Start date", value=datetime.now())
                 duration_hours = st.number_input("Duration (hrs)", min_value=0.0, step=0.25, value=1.0)
                 iteration = st.number_input("Iteration", min_value=0, step=1, value=1)
                 blockers = st.text_area("Blockers / Notes", height=80)
