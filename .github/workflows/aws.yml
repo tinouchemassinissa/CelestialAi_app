@@ -2,20 +2,30 @@ name: Deploy to EC2 (main)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate required secrets
+        run: |
+          echo "Checking secrets..."
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then echo "::error::EC2_HOST secret is missing"; exit 1; fi
+          if [ -z "${{ secrets.EC2_USER }}" ]; then echo "::error::EC2_USER secret is missing"; exit 1; fi
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then echo "::error::EC2_SSH_KEY secret is missing"; exit 1; fi
+          echo "All secrets present."
+
       - name: Prep known_hosts
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy application on EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -23,10 +33,13 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 60s
+          script_stop: true
           script: |
             set -euo pipefail
-            cd /opt/CelestialAi_app
+            cd /opt/CelestialAi_app || { echo "App directory not found"; exit 1; }
             python3 -m pip install --upgrade pip
             python3 -m pip install -r requirements.txt
-            bash /opt/CelestialAi_app/deploy.sh
+            bash ./deploy.sh
             sudo systemctl restart streamlit.service
+            echo "Deployment completed successfully."
