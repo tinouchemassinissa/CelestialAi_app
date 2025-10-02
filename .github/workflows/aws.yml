@@ -2,31 +2,51 @@ name: Deploy to EC2 (master)
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository Code
         uses: actions/checkout@v4
 
-      - name: Prep known_hosts
+      - name: Preflight: Check required secrets
+        run: |
+          echo "Checking for required secrets..."
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "::error::Missing secret EC2_HOST. Deployment stopped."
+            exit 1
+          fi
+          if [ -z "${{ secrets.EC2_USER }}" ]; then
+            echo "::error::Missing secret EC2_USER. Deployment stopped."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "::error::Missing secret SSH_PRIVATE_KEY. Deployment stopped."
+            exit 1
+          fi
+          echo "All secrets present."
+
+      - name: Add EC2 host key to known_hosts
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
-      - name: Deploy application on EC2
+      - name: Deploy via SSH and Run Remote Script
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 60s
+          script_stop: true
           script: |
             set -euo pipefail
-            cd /opt/CelestialAi_app
-            python3 -m pip install --upgrade pip
-            python3 -m pip install -r requirements.txt
-            bash /opt/CelestialAi_app/deploy.sh
-            sudo systemctl restart streamlit.service
+            cd /opt/CelestialAi_app || { echo "App directory not found"; exit 1; }
+            bash ./deploy.sh
+            echo "Remote deployment script finished successfully."
