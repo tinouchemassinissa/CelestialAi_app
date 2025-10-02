@@ -1732,7 +1732,7 @@ def render_database_manager():
     selected_table = st.selectbox("Choose a table to inspect", tables, index=0)
     row_limit = st.slider("Rows to display", min_value=10, max_value=500, value=100, step=10)
 
-    preview_df = fetch_table_preview(selected_table, row_limit=row_limit)
+    preview_df = fetch_table_preview(selected_table, limit=row_limit)
 
     if preview_df.empty:
         st.warning("This table is currently empty.")
