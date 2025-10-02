@@ -1137,7 +1137,7 @@ def render_license_monitor():
                 'unused_cost': 'Idle Cost (USD)',
             }
         )
-        history_display['Captured'] = pd.to_datetime(history_display['Created']).dt.strftime('%Y-%m-%d %H:%M') # FIX: Renamed column used in dt.strftime
+        history_display['Captured'] = pd.to_datetime(history_display['Captured']).dt.strftime('%Y-%m-%d %H:%M')
         with st.expander("📚 Historical Dashboard Snapshots", expanded=False):
             st.dataframe(
                 history_display,
