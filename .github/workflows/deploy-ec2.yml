@@ -3,7 +3,7 @@ name: Deploy to EC2 (master)
 on:
   push:
     branches: [ master ]
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   deploy:
@@ -15,7 +15,7 @@ jobs:
       - name: Add EC2 host key to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -T 5 -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
