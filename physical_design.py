@@ -7,12 +7,6 @@ from math import sqrt
 from io import StringIO
 import community.community_louvain as community_louvain
 
-try:  # pragma: no cover - guarding for partially deployed environments
-    import eda_infra  # type: ignore
-except ModuleNotFoundError:
-    eda_infra = None
-
-
 def _fallback_tool_registry() -> pd.DataFrame:
     """Keeps the floorplan dashboard usable when the registry helper is missing."""
     st.warning(
@@ -21,10 +15,22 @@ def _fallback_tool_registry() -> pd.DataFrame:
     return pd.DataFrame(columns=["Project", "Tool", "Approved Version", "Compiler"])
 
 
-if eda_infra and hasattr(eda_infra, "load_tool_registry"):
-    load_tool_registry = eda_infra.load_tool_registry  # type: ignore[attr-defined]
-else:
-    load_tool_registry = _fallback_tool_registry
+try:  # pragma: no cover - guarding for partially deployed environments
+    from eda_infra import load_tool_registry as _load_tool_registry  # type: ignore[attr-defined]
+except ImportError:
+    _load_tool_registry = None
+
+
+def load_tool_registry() -> pd.DataFrame:
+    """Safely obtain the tool registry, falling back when the helper is unavailable."""
+    if callable(_load_tool_registry):
+        try:
+            return _load_tool_registry()
+        except Exception:
+            st.warning(
+                "Tool registry helper raised an exception — showing empty registry instead."
+            )
+    return _fallback_tool_registry()
 
 from metrics import calculate_advanced_metrics, generate_export_file, generate_floorplan_coords
 
