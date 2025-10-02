@@ -3,19 +3,29 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import networkx as nx
-from math import sqrt 
+from math import sqrt
 from io import StringIO
 import community.community_louvain as community_louvain
 
-try:
-    from eda_infra import load_tool_registry
-except ImportError:  # pragma: no cover - defensive guard for remote deployments
-    def load_tool_registry():
-        """Fallback that keeps the floorplan dashboard usable when eda_infra is unavailable."""
-        st.warning(
-            "Tool registry unavailable — falling back to empty registry. Check the eda_infra module deployment."
-        )
-        return pd.DataFrame(columns=["Project", "Tool", "Approved Version", "Compiler"])
+try:  # pragma: no cover - guarding for partially deployed environments
+    import eda_infra  # type: ignore
+except ModuleNotFoundError:
+    eda_infra = None
+
+
+def _fallback_tool_registry() -> pd.DataFrame:
+    """Keeps the floorplan dashboard usable when the registry helper is missing."""
+    st.warning(
+        "Tool registry unavailable — falling back to empty registry. Check the eda_infra module deployment."
+    )
+    return pd.DataFrame(columns=["Project", "Tool", "Approved Version", "Compiler"])
+
+
+if eda_infra and hasattr(eda_infra, "load_tool_registry"):
+    load_tool_registry = eda_infra.load_tool_registry  # type: ignore[attr-defined]
+else:
+    load_tool_registry = _fallback_tool_registry
+
 from metrics import calculate_advanced_metrics, generate_export_file, generate_floorplan_coords
 
 # --- Configuration (Moved from main app) ---
