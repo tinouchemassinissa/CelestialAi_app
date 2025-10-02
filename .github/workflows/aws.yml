@@ -3,50 +3,34 @@ name: Deploy to EC2 (master)
 on:
   push:
     branches: [ master ]
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # add this if your secrets are Environment-scoped:
+    # environment: production
 
     steps:
-      - name: Checkout Repository Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Preflight: Check required secrets
+      - name: Preflight: required secrets
         run: |
-          echo "Checking for required secrets..."
-          if [ -z "${{ secrets.EC2_HOST }}" ]; then
-            echo "::error::Missing secret EC2_HOST. Deployment stopped."
-            exit 1
-          fi
-          if [ -z "${{ secrets.EC2_USER }}" ]; then
-            echo "::error::Missing secret EC2_USER. Deployment stopped."
-            exit 1
-          fi
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
-            echo "::error::Missing secret SSH_PRIVATE_KEY. Deployment stopped."
-            exit 1
-          fi
-          echo "All secrets present."
+          test -n "${{ secrets.EC2_HOST }}" || { echo "Missing secret EC2_HOST"; exit 1; }
+          test -n "${{ secrets.EC2_USER }}" || { echo "Missing secret EC2_USER"; exit 1; }
+          test -n "${{ secrets.SSH_PRIVATE_KEY }}" || { echo "Missing secret SSH_PRIVATE_KEY"; exit 1; }
 
       - name: Add EC2 host key to known_hosts
         run: |
           mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          ssh-keyscan -T 5 -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy via SSH and Run Remote Script
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          timeout: 60s
-          script_stop: true
           script: |
             set -euo pipefail
-            cd /opt/CelestialAi_app || { echo "App directory not found"; exit 1; }
-            bash ./deploy.sh
-            echo "Remote deployment script finished successfully."
+            bash /opt/CelestialAi_app/deploy.sh
