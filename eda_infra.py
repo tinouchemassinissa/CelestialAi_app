@@ -916,14 +916,13 @@ def render_license_monitor():
     st.markdown("""
     > EDA licenses are high-value assets. Monitor usage, cost, and availability to ensure smooth design flow.
     """)
-    
+
     df = get_license_data()
     if df.empty:
         st.warning("No license data available.")
         return
 
-    # Load costs for cost analysis
-    # Use try/except to handle the case where 'Tool' is missing from the loaded cost_df.
+    # Load costs for cost analysis (robust to malformed/missing CSV)
     try:
         cost_df = load_data('license_costs.csv')
     except KeyError:
@@ -949,7 +948,6 @@ def render_license_monitor():
 
     # If the join was successful (i.e., 'Cost_Per_Seat_USD' exists from the loaded CSV or fallback)
     if 'Cost_Per_Seat_USD' not in df.columns:
-        # Fallback for if the join didn't work (e.g. if the original CSV was missing data)
         df['Cost_Per_Seat_USD'] = df['Tool'].apply(
             lambda x: 25000 if 'Synopsys' in x else (35000 if 'Cadence' in x else 15000)
         )
@@ -1072,7 +1070,7 @@ def render_license_monitor():
         mime="text/csv"
     )
 
-    # Chart
+    # Bar chart
     fig = px.bar(
         filtered_df,
         x="Tool",
@@ -1081,8 +1079,8 @@ def render_license_monitor():
         color_discrete_sequence=["#e74c3c", "#2ecc71"]
     )
     st.plotly_chart(fig, use_container_width=True)
-    
-    # Table with conditional formatting
+
+    # Table with conditional formatting (use Styler.map to avoid deprecation warnings)
     st.subheader("License Details")
     
     # Select subset of columns to display
@@ -1090,11 +1088,11 @@ def render_license_monitor():
 
     # FIX: Apply styling and formatting to the sliced DataFrame and save the Styler object.
     # The Styler object itself is not subscriptable.
-    styled_df = filtered_df[display_cols].style.applymap(
+    styled_df = filtered_df[display_cols].style.map( # CHANGED .applymap TO .map
         # Use a high-contrast color for utilization warning (dark red on dark theme)
         lambda x: 'background-color: #a33333; color: white' if x >= 90 else '',
         subset=['Utilization (%)']
-    ).applymap(
+    ).map( # CHANGED .applymap TO .map
         # Use a light gold/yellow color to highlight the largest license pool
         lambda x: 'background-color: #ffdb58; color: black' if x == filtered_df['Total Licenses'].max() and x > 0 else '',
         subset=['Total Licenses']
@@ -1107,6 +1105,7 @@ def render_license_monitor():
     # Pass the resulting Styler object directly to st.dataframe
     st.dataframe(styled_df, hide_index=True)
 
+    # History (from license_snapshots)
     history_df = fetch_license_snapshot_history()
     if not history_df.empty:
         history_chart = history_df.sort_values('snapshot_id').copy()
@@ -1138,7 +1137,7 @@ def render_license_monitor():
                 'unused_cost': 'Idle Cost (USD)',
             }
         )
-        history_display['Captured'] = pd.to_datetime(history_display['Captured']).dt.strftime('%Y-%m-%d %H:%M')
+        history_display['Captured'] = pd.to_datetime(history_display['Created']).dt.strftime('%Y-%m-%d %H:%M') # FIX: Renamed column used in dt.strftime
         with st.expander("📚 Historical Dashboard Snapshots", expanded=False):
             st.dataframe(
                 history_display,
@@ -1227,7 +1226,6 @@ def render_license_monitor():
     with st.expander("➕ Add New EDA Tool"):
         with st.form("new_tool_form"):
             st.subheader("Input New Tool Specifications")
-            
             tool_name = st.text_input("Tool Name (e.g., Cadence Genus)", key='new_tool_name')
             vendor = st.selectbox("Vendor", ["Synopsys", "Cadence", "Siemens", "Other"], key='new_tool_vendor')
             total_licenses = st.number_input("Total Licenses Owned", min_value=1, step=1, key='new_tool_total', value=5)
@@ -1235,7 +1233,6 @@ def render_license_monitor():
             cost_per_seat = st.number_input("Annual Cost Per Seat (USD)", min_value=0, step=1000, key='new_tool_cost', value=10000)
 
             submitted = st.form_submit_button("Add Tool to Dashboard")
-            
             if submitted and tool_name:
                 new_data = {
                     "Tool": tool_name.title(),
@@ -1248,8 +1245,6 @@ def render_license_monitor():
                     "Total Cost": total_licenses * cost_per_seat,
                     "Unused Cost": (total_licenses - used_licenses) * cost_per_seat
                 }
-                
-                # Append to session state
                 current_df = st.session_state.license_data
                 if tool_name.title() not in current_df['Tool'].tolist():
                     upsert_license_record(new_data)
@@ -1418,116 +1413,116 @@ def render_run_tracker():
                 timeline_fig.update_yaxes(autorange="reversed")
                 st.plotly_chart(timeline_fig, use_container_width=True)
 
-            editor_columns = [
-                'run_id', 'Project', 'Tool', 'Flow Stage', 'Owner', 'Status', 'Start', 'Duration (hrs)', 'Iteration', 'Blockers'
-            ]
-            editor_df = filtered_df[editor_columns].set_index('run_id')
-            status_choices = list(dict.fromkeys(RUN_STATUS_OPTIONS + statuses))
+                editor_columns = [
+                    'run_id', 'Project', 'Tool', 'Flow Stage', 'Owner', 'Status', 'Start', 'Duration (hrs)', 'Iteration', 'Blockers'
+                ]
+                editor_df = filtered_df[editor_columns].set_index('run_id')
+                status_choices = list(dict.fromkeys(RUN_STATUS_OPTIONS + statuses))
 
-            edited_df = st.data_editor(
-                editor_df,
-                num_rows="fixed",
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    'Status': st.column_config.SelectboxColumn('Status', options=status_choices),
-                    'Duration (hrs)': st.column_config.NumberColumn('Duration (hrs)', min_value=0.0, step=0.25),
-                    'Start': st.column_config.DatetimeColumn('Start', disabled=True),
-                    'Project': st.column_config.TextColumn('Project', disabled=True),
-                    'Tool': st.column_config.TextColumn('Tool', disabled=True),
-                    'Flow Stage': st.column_config.TextColumn('Flow Stage', disabled=True),
-                    'Owner': st.column_config.TextColumn('Owner', disabled=True),
-                    'Iteration': st.column_config.NumberColumn('Iteration', disabled=True),
-                },
-            )
+                edited_df = st.data_editor(
+                    editor_df,
+                    num_rows="fixed",
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        'Status': st.column_config.SelectboxColumn('Status', options=status_choices),
+                        'Duration (hrs)': st.column_config.NumberColumn('Duration (hrs)', min_value=0.0, step=0.25),
+                        'Start': st.column_config.DatetimeColumn('Start', disabled=True),
+                        'Project': st.column_config.TextColumn('Project', disabled=True),
+                        'Tool': st.column_config.TextColumn('Tool', disabled=True),
+                        'Flow Stage': st.column_config.TextColumn('Flow Stage', disabled=True),
+                        'Owner': st.column_config.TextColumn('Owner', disabled=True),
+                        'Iteration': st.column_config.NumberColumn('Iteration', disabled=True),
+                    },
+                )
 
-            if st.button("💾 Save run updates", use_container_width=True):
-                changes = 0
-                for run_id, edited_row in edited_df.iterrows():
-                    original_row = editor_df.loc[run_id]
-                    status_changed = edited_row['Status'] != original_row['Status']
-                    duration_changed = not pd.isna(edited_row['Duration (hrs)']) and (
-                        pd.isna(original_row['Duration (hrs)'])
-                        or float(edited_row['Duration (hrs)']) != float(original_row['Duration (hrs)'])
-                    )
-                    blockers_changed = (edited_row['Blockers'] or '') != (original_row['Blockers'] or '')
-
-                    if status_changed or duration_changed or blockers_changed:
-                        update_run_status(
-                            run_id,
-                            edited_row['Status'],
-                            blockers=edited_row['Blockers'] if blockers_changed else None,
-                            duration_hours=float(edited_row['Duration (hrs)']) if duration_changed else None,
+                if st.button("💾 Save run updates", use_container_width=True):
+                    changes = 0
+                    for run_id, edited_row in edited_df.iterrows():
+                        original_row = editor_df.loc[run_id]
+                        status_changed = edited_row['Status'] != original_row['Status']
+                        duration_changed = not pd.isna(edited_row['Duration (hrs)']) and (
+                            pd.isna(original_row['Duration (hrs)'])
+                            or float(edited_row['Duration (hrs)']) != float(original_row['Duration (hrs)'])
                         )
-                        changes += 1
+                        blockers_changed = (edited_row['Blockers'] or '') != (original_row['Blockers'] or '')
 
-                if changes:
-                    refresh_run_history_session_state()
-                    st.success(f"Updated {changes} run{'s' if changes != 1 else ''}.")
-                    st.rerun()
+                        if status_changed or duration_changed or blockers_changed:
+                            update_run_status(
+                                run_id,
+                                edited_row['Status'],
+                                blockers=edited_row['Blockers'] if blockers_changed else None,
+                                duration_hours=float(edited_row['Duration (hrs)']) if duration_changed else None,
+                            )
+                            changes += 1
+
+                    if changes:
+                        refresh_run_history_session_state()
+                        st.success(f"Updated {changes} run{'s' if changes != 1 else ''}.")
+                        st.rerun()
+                    else:
+                        st.info("No run updates detected.")
+
+                st.download_button(
+                    "⬇️ Export filtered runs",
+                    data=filtered_df.drop(columns=['updated_at'], errors='ignore').to_csv(index=False),
+                    file_name="eda_run_tracker.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+        with st.expander("➕ Log a new run"):
+            with st.form("new_run_form"):
+                run_state_df = st.session_state.get('run_history', pd.DataFrame())
+                if isinstance(run_state_df, pd.DataFrame) and 'Project' in run_state_df.columns:
+                    existing_projects = sorted(set(run_state_df['Project'].dropna()))
                 else:
-                    st.info("No run updates detected.")
+                    existing_projects = []
+                default_project = existing_projects[0] if existing_projects else ""
+                project = st.text_input("Project", value=default_project)
+                tool = st.text_input("Tool", placeholder="e.g., Cadence Innovus")
+                flow_stage = st.selectbox(
+                    "Flow stage",
+                    [
+                        "Synthesis",
+                        "Floorplanning",
+                        "Place & Route",
+                        "Timing Sign-off",
+                        "Power Analysis",
+                        "DRC",
+                        "LVS",
+                        "Custom",
+                    ],
+                )
+                owner = st.text_input("Owner", value=st.session_state.get('user', ""))
+                status = st.selectbox("Status", RUN_STATUS_OPTIONS, index=RUN_STATUS_OPTIONS.index("Queued"))
+                start_time = st.datetime_input("Start time", value=datetime.now())
+                duration_hours = st.number_input("Duration (hrs)", min_value=0.0, step=0.25, value=1.0)
+                iteration = st.number_input("Iteration", min_value=0, step=1, value=1)
+                blockers = st.text_area("Blockers / Notes", height=80)
 
-            st.download_button(
-                "⬇️ Export filtered runs",
-                data=filtered_df.drop(columns=['updated_at'], errors='ignore').to_csv(index=False),
-                file_name="eda_run_tracker.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
-
-    with st.expander("➕ Log a new run"):
-        with st.form("new_run_form"):
-            run_state_df = st.session_state.get('run_history', pd.DataFrame())
-            if isinstance(run_state_df, pd.DataFrame) and 'Project' in run_state_df.columns:
-                existing_projects = sorted(set(run_state_df['Project'].dropna()))
-            else:
-                existing_projects = []
-            default_project = existing_projects[0] if existing_projects else ""
-            project = st.text_input("Project", value=default_project)
-            tool = st.text_input("Tool", placeholder="e.g., Cadence Innovus")
-            flow_stage = st.selectbox(
-                "Flow stage",
-                [
-                    "Synthesis",
-                    "Floorplanning",
-                    "Place & Route",
-                    "Timing Sign-off",
-                    "Power Analysis",
-                    "DRC",
-                    "LVS",
-                    "Custom",
-                ],
-            )
-            owner = st.text_input("Owner", value=st.session_state.get('user', ""))
-            status = st.selectbox("Status", RUN_STATUS_OPTIONS, index=RUN_STATUS_OPTIONS.index("Queued"))
-            start_time = st.datetime_input("Start time", value=datetime.now())
-            duration_hours = st.number_input("Duration (hrs)", min_value=0.0, step=0.25, value=1.0)
-            iteration = st.number_input("Iteration", min_value=0, step=1, value=1)
-            blockers = st.text_area("Blockers / Notes", height=80)
-
-            submitted = st.form_submit_button("Log run")
-            if submitted:
-                required = [project.strip(), tool.strip(), flow_stage.strip(), owner.strip()]
-                if not all(required):
-                    st.warning("Project, tool, flow stage, and owner are required to log a run.")
-                else:
-                    record = {
-                        'run_id': generate_run_id(),
-                        'Project': project.strip(),
-                        'Tool': tool.strip(),
-                        'Flow Stage': flow_stage,
-                        'Owner': owner.strip(),
-                        'Status': status,
-                        'Start': start_time,
-                        'Duration (hrs)': float(duration_hours),
-                        'Iteration': int(iteration),
-                        'Blockers': blockers.strip(),
-                    }
-                    log_run_event(record)
-                    refresh_run_history_session_state()
-                    st.success("Run logged successfully.")
-                    st.rerun()
+                submitted = st.form_submit_button("Log run")
+                if submitted:
+                    required = [project.strip(), tool.strip(), flow_stage.strip(), owner.strip()]
+                    if not all(required):
+                        st.warning("Project, tool, flow stage, and owner are required to log a run.")
+                    else:
+                        record = {
+                            'run_id': generate_run_id(),
+                            'Project': project.strip(),
+                            'Tool': tool.strip(),
+                            'Flow Stage': flow_stage,
+                            'Owner': owner.strip(),
+                            'Status': status,
+                            'Start': start_time,
+                            'Duration (hrs)': float(duration_hours),
+                            'Iteration': int(iteration),
+                            'Blockers': blockers.strip(),
+                        }
+                        log_run_event(record)
+                        refresh_run_history_session_state()
+                        st.success("Run logged successfully.")
+                        st.rerun()
 
 
 def render_tapeout_checklist():
@@ -1811,6 +1806,7 @@ def render_database_manager():
                             data=result_df.to_csv(index=False).encode("utf-8"),
                             file_name="query_result.csv",
                             mime="text/csv",
+                            use_container_width=True,
                         )
                 except Exception as exc:  # noqa: BLE001
                     st.error(f"Query failed: {exc}")
