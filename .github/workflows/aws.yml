@@ -1,94 +1,27 @@
-# This workflow will build and push a new container image to Amazon ECR,
-# and then will deploy a new task definition to Amazon ECS, when there is a push to the "master" branch.
-#
-# To use this workflow, you will need to complete the following set-up steps:
-#
-# 1. Create an ECR repository to store your images.
-#    For example: `aws ecr create-repository --repository-name my-ecr-repo --region us-east-2`.
-#    Replace the value of the `ECR_REPOSITORY` environment variable in the workflow below with your repository's name.
-#    Replace the value of the `AWS_REGION` environment variable in the workflow below with your repository's region.
-#
-# 2. Create an ECS task definition, an ECS cluster, and an ECS service.
-#    For example, follow the Getting Started guide on the ECS console:
-#      https://us-east-2.console.aws.amazon.com/ecs/home?region=us-east-2#/firstRun
-#    Replace the value of the `ECS_SERVICE` environment variable in the workflow below with the name you set for the Amazon ECS service.
-#    Replace the value of the `ECS_CLUSTER` environment variable in the workflow below with the name you set for the cluster.
-#
-# 3. Store your ECS task definition as a JSON file in your repository.
-#    The format should follow the output of `aws ecs register-task-definition --generate-cli-skeleton`.
-#    Replace the value of the `ECS_TASK_DEFINITION` environment variable in the workflow below with the path to the JSON file.
-#    Replace the value of the `CONTAINER_NAME` environment variable in the workflow below with the name of the container
-#    in the `containerDefinitions` section of the task definition.
-#
-# 4. Store an IAM user access key in GitHub Actions secrets named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
-#    See the documentation for each action used below for the recommended IAM policies for this IAM user,
-#    and best practices on handling the access key credentials.
-
-name: Deploy to Amazon ECS
+name: Deploy to EC2 (master)
 
 on:
   push:
-    branches: [ "master" ]
-
-env:
-  AWS_REGION: MY_AWS_REGION                   # set this to your preferred AWS region, e.g. us-west-1
-  ECR_REPOSITORY: MY_ECR_REPOSITORY           # set this to your Amazon ECR repository name
-  ECS_SERVICE: MY_ECS_SERVICE                 # set this to your Amazon ECS service name
-  ECS_CLUSTER: MY_ECS_CLUSTER                 # set this to your Amazon ECS cluster name
-  ECS_TASK_DEFINITION: MY_ECS_TASK_DEFINITION # set this to the path to your Amazon ECS task definition
-                                               # file, e.g. .aws/task-definition.json
-  CONTAINER_NAME: MY_CONTAINER_NAME           # set this to the name of the container in the
-                                               # containerDefinitions section of your task definition
-
-permissions:
-  contents: read
+    branches: [ master ]
 
 jobs:
   deploy:
-    name: Deploy
     runs-on: ubuntu-latest
-    environment: production
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Prep known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    - name: Build, tag, and push image to Amazon ECR
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Build a docker container and
-        # push it to ECR so that it can
-        # be deployed to ECS.
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
-
-    - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: ${{ env.ECS_TASK_DEFINITION }}
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.build-image.outputs.image }}
-
-    - name: Deploy Amazon ECS task definition
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.18.188.23.175 }}
+          username: ${{ secrets.ubuntu }}         # e.g. "ubuntu"
+          key: ${{ secrets.MIIEpAIBAAKCAQEAtvJWNXheGMGfeRFS9GmDqjAetNf2cP25x8SzNWr+C0tLqb8AnifaLf35tChcQO2EPODgux9lR2yKd5IPSj3yGxoX8S/C5cP6JigGe9r/ZFsbP92TgeeZcrFOUHmCvxnc8hY51PnQ0Oq4nUrZjclwWXCO7Lqn0zxAapwYlbvVFyiy8BBqrKjsxMBwd5CntKzrcv0TEbnuvDv2YlDSwUlJkktglpaunq/qPAAy2AB5ltHFw/5vGE3xMXIIF77ndB311LxNxnkwIbIgkN/pViee0YYObIIGEanP/NWCGcwlGlkIwgaPu3TCE+5B0RJYs8DXzAtiMm7zWY80OuLhzKKGMQIDAQABAoIBAQCpChQEBfsT7tw2Vn6K3W/N8fZ9bMsGLjrZzfM0mW6w6tq3toeQmwwq0PBHub88Mvqr8bFU1TaUn0L2JpxAIiqxRhP3RAVWnhVl6jfLe1fd15y/DzI7ps6PPis5inz3rKMNgOHg2w9J6oe4tq98JjPMQIefTvzA3nw6xY6l08+aO+zngWBw0qPCT2fdc+aLamUCKLLau7fAHS40SL/BO7YN9PLRM3DexeBN8OAWAl+tkvoxIYBbmq1x0o35lunHQZhl0weHc00XowFeDCVCcsZHZ0zi/tziqPczIjElFY1OKEhtraFAmY0jpQlaYFdxwLgjUJ2Pt9BQBzAGvCIYhWfBAoGBAOgusAtdl5p6hEt3epT7F8JKeoKqOIHIJmGi8LX1itjLXlw+UWNhRpwe3EmuAxESVGn5bXLKo+W4CQsVSCzFvA4xTF638kkz27kHsCNKKGhFbRhZMV56imonzVVdtL/O+hi9mu1c6A8HhEyWBD96V577L4npf94iohlNabfCAZvJAoGBAMm2rODzTt9OA4C/WtN0Mz6Snmtfjz9oCtmjUCYn4J6A9sMwYe5dGitIofbBkTFFoJZ7aBPeCzToDt7ILcofrfS2ZniV9BFu55F9b6EwP4UJEOXmSLynb/vxqd6NotCWQWFVPzhD2E1Pt0exFwLQRVfUQBS0LEKBTcW62ySVz3spAoGBAOfpwnQHzydBGyWaOPnYeFncNNSRHBIeDqBVtaO6mC6FrEHtCTR/9Jx6gsShqHSD34de2gDgAaeyFG5ampYGCBoRCdxOVhbiUqVV1YzaRNQqDJdWd+aL9fekvAd5qtIv9kWCFd7jfvOMKYyqB6I0HJMzCL/zWIJUC5/EYEVo5lxpAoGARM42LElyZwOCeGFNhwGFFVwIA9JF17gSs2hcx5ckrIyLH8uaLCe/7HHLJZOjhi4c+BfCSbydD//0SpP34pFp0iaBz7I+3c952Av0jwQZNrT/+ZvSxd9LeKJXcl3X4tTOGnhspzGlT8HYX/ENS11lue7hqO5Ihqr6r27sn48mhfkCgYBf3j79uXKVF/I+qIRwZiqo1DJNMB4jWeOrNs4mXbUBPvZ8MjIfbAXLL1qsXK4nYD0LJs8p4v6A1Zir6b6vpRenRf3QO3EyOLW1shBMTtOKELG74zBJIAquwmwN9cMJt8cSmVR9VhXanCRO3JqXHPfjfVCWRZkD9Rcibb/GiFtp8g== }}       # contents of your .pem
+          script: |
+            set -euo pipefail
+            bash /opt/CelestialAi_app/deploy.sh
